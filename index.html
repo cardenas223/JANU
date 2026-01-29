@@ -607,7 +607,7 @@
                 
                 <div class="mb-4">
                     <label class="block font-bold mb-2">Teléfono *</label>
-                    <input type="tel" id="customerPhone" required class="w-full" placeholder="+51 999 999 999">
+                    <input type="tel" id="customerPhone" required class="w-full" placeholder="+51 999 999 999" pattern="^\+?51\s?9\d{2}\s?\d{3}\s?\d{3}$" title="Ingrese un número de teléfono peruano válido">
                 </div>
                 
                 <div class="mb-4">
@@ -699,7 +699,13 @@
         ];
 
         // Cart State
-        let cart = JSON.parse(localStorage.getItem('januCart')) || [];
+        let cart = [];
+        try {
+            cart = JSON.parse(localStorage.getItem('januCart')) || [];
+        } catch (e) {
+            console.error('Error loading cart from localStorage:', e);
+            cart = [];
+        }
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', function() {
@@ -723,7 +729,7 @@
                         <h3 class="text-lg font-bold mb-2 min-h-[56px]">${product.name}</h3>
                         <div class="flex justify-between items-center">
                             <span class="text-2xl font-black" style="color: var(--azul-medico);">S/. ${product.price}</span>
-                            <button onclick="addToCart(${product.id})" class="btn-brutalist brutalist-border brutalist-shadow-sm px-4 py-2 font-bold text-white" style="background-color: var(--coral-salmon);">
+                            <button onclick="addToCart(${product.id}, this)" class="btn-brutalist brutalist-border brutalist-shadow-sm px-4 py-2 font-bold text-white" style="background-color: var(--coral-salmon);">
                                 Añadir
                             </button>
                         </div>
@@ -733,7 +739,7 @@
         }
 
         // Add to Cart
-        function addToCart(productId) {
+        function addToCart(productId, buttonElement) {
             const product = products.find(p => p.id === productId);
             const existingItem = cart.find(item => item.id === productId);
             
@@ -746,16 +752,17 @@
             saveCart();
             updateCartUI();
             
-            // Show feedback
-            const button = event.target;
-            const originalText = button.textContent;
-            button.textContent = '✓ Añadido';
-            button.style.backgroundColor = 'var(--verde-menta)';
-            
-            setTimeout(() => {
-                button.textContent = originalText;
-                button.style.backgroundColor = 'var(--coral-salmon)';
-            }, 1500);
+            // Show feedback if button element is provided
+            if (buttonElement) {
+                const originalText = buttonElement.textContent;
+                buttonElement.textContent = '✓ Añadido';
+                buttonElement.style.backgroundColor = 'var(--verde-menta)';
+                
+                setTimeout(() => {
+                    buttonElement.textContent = originalText;
+                    buttonElement.style.backgroundColor = 'var(--coral-salmon)';
+                }, 1500);
+            }
         }
 
         // Update Cart UI
@@ -876,10 +883,10 @@
             const cartBtn = document.getElementById('cartBtn');
             const cartModal = document.getElementById('cartModal');
             const cartOverlay = document.getElementById('cartOverlay');
-            const closeCart = document.getElementById('closeCart');
+            const closeCartBtn = document.getElementById('closeCart');
             
             cartBtn.addEventListener('click', openCart);
-            closeCart.addEventListener('click', closeCart);
+            closeCartBtn.addEventListener('click', closeCart);
             cartOverlay.addEventListener('click', closeCart);
         }
 
@@ -922,11 +929,24 @@
         }
 
         function sendToWhatsApp() {
-            const name = document.getElementById('customerName').value;
-            const phone = document.getElementById('customerPhone').value;
-            const address = document.getElementById('customerAddress').value;
-            const district = document.getElementById('customerDistrict').value;
-            const notes = document.getElementById('customerNotes').value;
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            const district = document.getElementById('customerDistrict').value.trim();
+            const notes = document.getElementById('customerNotes').value.trim();
+            
+            // Basic validation
+            if (!name || !phone || !address || !district) {
+                alert('Por favor complete todos los campos requeridos.');
+                return;
+            }
+            
+            // Validate phone format (Peruvian format)
+            const phoneRegex = /^\+?51\s?9\d{8}$/;
+            if (!phoneRegex.test(phone.replace(/\s/g, ''))) {
+                alert('Por favor ingrese un número de teléfono válido de Perú (ejemplo: +51 987 654 321).');
+                return;
+            }
             
             // Build products list
             let productsText = '';
@@ -952,16 +972,18 @@
             const encodedMessage = encodeURIComponent(message);
             const whatsappURL = `https://wa.me/51917350726?text=${encodedMessage}`;
             
+            // Clear cart immediately to prevent duplicate submissions
+            cart = [];
+            saveCart();
+            updateCartUI();
+            document.getElementById('orderForm').reset();
+            
             // Open WhatsApp
             window.open(whatsappURL, '_blank');
             
-            // Clear cart after sending
+            // Close cart modal and show confirmation
             setTimeout(() => {
-                cart = [];
-                saveCart();
-                updateCartUI();
                 closeCart();
-                document.getElementById('orderForm').reset();
                 alert('¡Pedido enviado! Nos pondremos en contacto contigo pronto.');
             }, 1000);
         }
